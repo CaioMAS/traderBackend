@@ -45,7 +45,10 @@ class TokenGovernor:
 
     def get_group_for_model(self, model_name: str) -> int:
         clean = model_name.lower().strip()
-        if any(m in clean for m in GROUP1_MODELS):
+        # Modelos mini/nano pertencem explicitamente ao Grupo 2 (econômico)
+        if any(marker in clean for marker in ["-mini", "-nano", "mini", "nano"]) or clean in GROUP2_MODELS:
+            return 2
+        if clean in GROUP1_MODELS or any(m == clean for m in GROUP1_MODELS):
             return 1
         return 2
 
