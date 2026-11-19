@@ -120,6 +120,7 @@ class OrderSimulator:
         trader.realized_pnl += realized_pnl
         trader.total_equity = trader.cash_balance + trader.invested_capital
 
+        trader.total_trades_count += 1
         if realized_pnl >= 0:
             trader.winning_trades_count += 1
         else:

@@ -68,6 +68,62 @@ async def get_trader_detail(trader_id: str, db: AsyncSession = Depends(get_db)):
         "recent_trades": trades,
     }
 
+@router.get("/{trader_id}/trades")
+async def get_trader_trades(trader_id: str, limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
+    """Retorna o histórico completo de trades de um operador com paginação."""
+    trader = await db.get(Trader, trader_id)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Operador não encontrado.")
+
+    from sqlalchemy import func
+    # Contagem total de trades deste operador
+    count_res = await db.execute(
+        select(func.count(Trade.id)).where(Trade.trader_id == trader_id)
+    )
+    total_count = count_res.scalar() or 0
+
+    # Buscar trades com paginação
+    trade_res = await db.execute(
+        select(Trade)
+        .where(Trade.trader_id == trader_id)
+        .order_by(Trade.executed_at.desc())
+        .offset(offset)
+        .limit(limit)
+    )
+    trades = [t.to_dict() for t in trade_res.scalars().all()]
+
+    return {
+        "trader_id": trader_id,
+        "trader_name": trader.name,
+        "total_count": total_count,
+        "offset": offset,
+        "limit": limit,
+        "trades": trades,
+    }
+
+
+@router.get("/{trader_id}/positions")
+async def get_trader_positions(trader_id: str, status: Optional[str] = None, db: AsyncSession = Depends(get_db)):
+    """Retorna as posições de um operador, opcionalmente filtradas por status (OPEN/CLOSED)."""
+    trader = await db.get(Trader, trader_id)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Operador não encontrado.")
+
+    query = select(Position).where(Position.trader_id == trader_id)
+    if status:
+        query = query.where(Position.status == status.upper())
+    query = query.order_by(Position.opened_at.desc())
+
+    pos_res = await db.execute(query)
+    positions = [p.to_dict() for p in pos_res.scalars().all()]
+
+    return {
+        "trader_id": trader_id,
+        "trader_name": trader.name,
+        "positions": positions,
+    }
+
+
 @router.post("")
 async def create_trader(req: CreateTraderRequest, db: AsyncSession = Depends(get_db)):
     trader = Trader(
